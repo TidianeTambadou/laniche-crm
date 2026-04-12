@@ -83,7 +83,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           </div>
 
           <motion.div className="relative z-10"
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7, ease: [0.22,1,0.36,1] }}>
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7, ease: [0.22,1,0.36,1] as [number,number,number,number] }}>
             <p className="text-[11px] font-bold tracking-[0.2em] text-white/30 uppercase mb-6">CRM Boutiques Partenaires</p>
             <h1 className="text-5xl font-black text-white leading-[1.05] tracking-tight mb-5">
               Gérez votre boutique.<br />

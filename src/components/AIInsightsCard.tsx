@@ -147,7 +147,7 @@ export default function AIInsightsCard({ kpis }: { kpis?: { totalStock: number; 
   };
   const childVariants = {
     hidden: { opacity: 0, y: 24 },
-    show:   { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+    show:   { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] } },
   };
 
   return (
@@ -236,7 +236,7 @@ export default function AIInsightsCard({ kpis }: { kpis?: { totalStock: number; 
               initial={{ opacity: 0, scale: 0.8, y: 10 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: f.delay + 0.6, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ delay: f.delay + 0.6, duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
               animate={{ y: [0, -5, 0] }}
             >
               <p className="text-white font-bold text-sm">{f.label}</p>
