@@ -211,8 +211,7 @@ function PriceModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.93, y: 28 }}
             transition={{ type: "spring", stiffness: 360, damping: 28 }}
-            className="fixed inset-x-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-sm z-50"
-            style={{ bottom: "calc(1rem + 4rem + env(safe-area-inset-bottom))" }}
+            className="fixed inset-x-4 bottom-[calc(1rem+4rem+env(safe-area-inset-bottom))] sm:inset-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-sm z-50"
             onClick={e => e.stopPropagation()}
           >
             <div className="bg-[#0a0a0a] rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
@@ -378,8 +377,7 @@ function NotifyModal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: "spring", stiffness: 340, damping: 28 }}
-            className="fixed inset-x-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md z-50"
-            style={{ bottom: "calc(1rem + 4rem + env(safe-area-inset-bottom))" }}
+            className="fixed inset-x-4 bottom-[calc(1rem+4rem+env(safe-area-inset-bottom))] sm:inset-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md z-50"
             onClick={e => e.stopPropagation()}
           >
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">

@@ -222,8 +222,7 @@ export default function PerfumeModal({
             animate={{ opacity: 1, scale: 1,    y: 0  }}
             exit={{   opacity: 0, scale: 0.94, y: 24  }}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="fixed inset-x-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-full sm:max-w-md"
-            style={{ bottom: "calc(1rem + 4rem + env(safe-area-inset-bottom))" }}
+            className="fixed inset-x-4 bottom-[calc(1rem+4rem+env(safe-area-inset-bottom))] sm:inset-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-full sm:max-w-md"
             onClick={e => e.stopPropagation()}
           >
             <div className="relative bg-white rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
