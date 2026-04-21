@@ -380,6 +380,7 @@ export default function InventoryPage() {
         onSubmit={editTarget ? handleEdit : handleAdd}
         initial={editTarget ? { name: editTarget.perfume_name, brand: editTarget.brand, price: editTarget.price ?? 0, quantity: editTarget.quantity } : undefined}
         mode={editTarget ? "edit" : "add"}
+        existingPerfumes={items}
       />
     </div>
   );

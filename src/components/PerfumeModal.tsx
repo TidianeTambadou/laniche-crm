@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus, Check, Loader2, Sparkles } from "lucide-react";
+import PerfumeAutocomplete from "./PerfumeAutocomplete";
 
 export interface PerfumeFormData {
   name:     string;
@@ -17,6 +18,7 @@ interface PerfumeModalProps {
   onSubmit:   (data: PerfumeFormData) => Promise<void>;
   initial?:   Partial<PerfumeFormData>;
   mode?:      "add" | "edit";
+  existingPerfumes?: Array<{ perfume_name: string; brand: string }>;
 }
 
 /* ── Animated input field ── */
@@ -161,7 +163,9 @@ function SuccessOverlay() {
   );
 }
 
-export default function PerfumeModal({ isOpen, onClose, onSubmit, initial, mode = "add" }: PerfumeModalProps) {
+export default function PerfumeModal({
+  isOpen, onClose, onSubmit, initial, mode = "add", existingPerfumes = [],
+}: PerfumeModalProps) {
   const [name,     setName]     = useState(initial?.name     ?? "");
   const [brand,    setBrand]    = useState(initial?.brand    ?? "");
   const [price,    setPrice]    = useState(String(initial?.price ?? ""));
@@ -218,7 +222,8 @@ export default function PerfumeModal({ isOpen, onClose, onSubmit, initial, mode 
             animate={{ opacity: 1, scale: 1,    y: 0  }}
             exit={{   opacity: 0, scale: 0.94, y: 24  }}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="fixed inset-x-4 bottom-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-full sm:max-w-md"
+            className="fixed inset-x-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-auto sm:w-full sm:max-w-md"
+            style={{ bottom: "calc(1rem + 4rem + env(safe-area-inset-bottom))" }}
             onClick={e => e.stopPropagation()}
           >
             <div className="relative bg-white rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
@@ -254,8 +259,17 @@ export default function PerfumeModal({ isOpen, onClose, onSubmit, initial, mode 
                   animate="show"
                   className="space-y-4"
                 >
-                  <Field label="Nom du parfum" value={name} onChange={setName}
-                    placeholder="Ex: Bleu de Chanel" autoFocus />
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Nom du parfum</label>
+                    <PerfumeAutocomplete
+                      value={name}
+                      onChange={setName}
+                      onSelect={opt => { setName(opt.name); setBrand(opt.brand); }}
+                      existingPerfumes={existingPerfumes}
+                      placeholder="Ex: Bleu de Chanel"
+                      inputClassName="w-full px-4 py-3 bg-secondary/40 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/60 outline-none border border-transparent focus:border-foreground/20 transition-colors"
+                    />
+                  </div>
                   <Field label="Marque" value={brand} onChange={setBrand}
                     placeholder="Ex: Chanel" />
                   <PriceField value={price} onChange={setPrice} />
