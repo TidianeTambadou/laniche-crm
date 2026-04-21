@@ -10,8 +10,8 @@ import { ProfileProvider } from "@/contexts/ProfileContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import dynamic from "next/dynamic";
 import BottomNav from "./BottomNav";
+import FaqBubble from "./FaqBubble";
 import AddressAutocomplete from "./AddressAutocomplete";
-import ShopMap from "./ShopMap";
 
 const LoginAnimation = dynamic(() => import("./LoginAnimation"), { ssr: false });
 
@@ -333,11 +333,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
               </div>
             </div>
 
-            {/* Mini carte preview */}
-            {addrLat !== 0 && (
-              <ShopMap lat={addrLat} lng={addrLng} label={addrLine} height={160} className="mt-1" />
-            )}
-
             {/* Website */}
             <div>
               <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">
@@ -436,6 +431,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             {children}
           </main>
           <BottomNav />
+          <FaqBubble />
         </div>
       </ProfileProvider>
     </SidebarProvider>

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { X, Save, LogOut, Mail, Lock, Store, Calendar, CheckCircle2, AlertCircle, MapPin, Globe, AtSign, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import AddressAutocomplete from "./AddressAutocomplete";
-import ShopMap from "./ShopMap";
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -101,9 +100,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const [country, setCountry]           = useState("France");
   const [websiteUrl, setWebsiteUrl]     = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [openingHours, setOpeningHours] = useState<OpeningHours>(DEFAULT_HOURS);
   const [shopLat, setShopLat]           = useState(0);
   const [shopLng, setShopLng]           = useState(0);
-  const [openingHours, setOpeningHours] = useState<OpeningHours>(DEFAULT_HOURS);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -316,10 +315,6 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               </div>
             </div>
 
-            {/* Carte mini */}
-            {shopLat !== 0 && (
-              <ShopMap lat={shopLat} lng={shopLng} label={`${addrLine}, ${city}`} height={180} />
-            )}
           </section>
 
           <div className="border-t border-border" />

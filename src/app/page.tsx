@@ -11,7 +11,6 @@ import { fr } from "date-fns/locale";
 import { useProfile } from "@/contexts/ProfileContext";
 import AIInsightsCard from "@/components/AIInsightsCard";
 import PageHeader from "@/components/PageHeader";
-import ShopMap from "@/components/ShopMap";
 
 const fade = {
   hidden: { opacity: 0, y: 16 },
@@ -41,20 +40,15 @@ export default function Dashboard() {
   const [kpis, setKpis]                     = useState({ totalStock: 0, brades: 0, estRevenue: 0, totalViews: 0 });
   const [topBrands, setTopBrands]           = useState<any[]>([]);
   const [stockEvolution, setStockEvolution] = useState<any[]>([]);
-  const [shopLat, setShopLat]               = useState(0);
-  const [shopLng, setShopLng]               = useState(0);
-
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const uid = session.user.id;
       const { data: shop } = await supabase
-        .from("shops").select("name, latitude, longitude").eq("id", uid).maybeSingle();
+        .from("shops").select("name").eq("id", uid).maybeSingle();
       if (shop) {
         setShopName(shop.name);
-        setShopLat(shop.latitude ?? 0);
-        setShopLng(shop.longitude ?? 0);
       }
       const id = uid;
       const { data: perf } = await supabase
@@ -177,16 +171,6 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Localisation boutique */}
-        {shopLat !== 0 && (
-          <motion.div variants={fade} className="bg-background rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground">Ma boutique</h3>
-              <span className="text-[11px] text-muted-foreground bg-secondary px-2.5 py-1 rounded-full font-medium">Localisation</span>
-            </div>
-            <ShopMap lat={shopLat} lng={shopLng} label={shopName} height={220} />
-          </motion.div>
-        )}
 
       </div>
     </div>

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, PackageSearch, Tag, Sparkles } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Tag, Sparkles, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 
 const TABS = [
   { href: "/",             label: "Accueil",    Icon: LayoutDashboard },
@@ -13,6 +14,7 @@ const TABS = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   return (
     <nav
@@ -38,6 +40,21 @@ export default function BottomNav() {
           </Link>
         );
       })}
+
+      {/* Dark mode toggle */}
+      <button
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        className="flex flex-col items-center justify-center gap-1 py-2.5 px-3 text-muted-foreground transition-colors"
+        aria-label="Thème"
+      >
+        <div className="p-1.5 rounded-xl">
+          {theme === "dark"
+            ? <Sun  className="w-5 h-5" />
+            : <Moon className="w-5 h-5" />
+          }
+        </div>
+        <span className="text-[10px] font-semibold tracking-tight">Thème</span>
+      </button>
     </nav>
   );
 }
