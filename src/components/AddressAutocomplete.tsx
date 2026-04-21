@@ -23,7 +23,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect, placeho
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading]         = useState(false);
   const [open, setOpen]               = useState(false);
-  const debounce                      = useRef<ReturnType<typeof setTimeout>>();
+  const debounce                      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapper                       = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
