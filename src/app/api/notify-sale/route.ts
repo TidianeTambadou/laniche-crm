@@ -1,8 +1,6 @@
 import { Resend } from "resend";
 import { NextResponse } from "next/server";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const DEST = "tidianetambadoupro@gmail.com";
 
 interface SaleItem {
@@ -90,6 +88,10 @@ function buildEmailHtml(shopName: string, month: string, items: SaleItem[]) {
 }
 
 export async function POST(req: Request) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return NextResponse.json({ error: "RESEND_API_KEY manquante" }, { status: 500 });
+  const resend = new Resend(key);
+
   try {
     const { shopName, month, items } = await req.json() as {
       shopName: string;
