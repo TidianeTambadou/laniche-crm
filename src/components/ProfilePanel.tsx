@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { X, Save, LogOut, Mail, Lock, Store, Calendar, CheckCircle2, AlertCircle, MapPin, Globe, AtSign } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import AddressAutocomplete from "./AddressAutocomplete";
+import ShopMap from "./ShopMap";
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -28,6 +30,8 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const [country, setCountry]           = useState("France");
   const [websiteUrl, setWebsiteUrl]     = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [shopLat, setShopLat]           = useState(0);
+  const [shopLng, setShopLng]           = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -42,7 +46,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
 
     const { data: shop } = await supabase
       .from("shops")
-      .select("id, name, created_at, address_line, postal_code, city, country, website_url, instagram_url")
+      .select("id, name, created_at, address_line, postal_code, city, country, website_url, instagram_url, latitude, longitude")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -56,6 +60,8 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       setCountry(shop.country ?? "France");
       setWebsiteUrl(shop.website_url ?? "");
       setInstagramUrl(shop.instagram_url ?? "");
+      setShopLat(shop.latitude ?? 0);
+      setShopLng(shop.longitude ?? 0);
     }
   };
 
@@ -68,10 +74,10 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       if (!session) throw new Error("Non connecté");
       const uid = session.user.id;
 
-      // Geocode if address changed
-      let lat: number | undefined;
-      let lng: number | undefined;
-      if (addrLine && city) {
+      // Coordonnées : depuis autocomplete si disponibles, sinon Nominatim fallback
+      let lat: number | undefined = shopLat || undefined;
+      let lng: number | undefined = shopLng || undefined;
+      if ((!lat || !lng) && addrLine && city) {
         try {
           const q = encodeURIComponent(`${addrLine}, ${postalCode} ${city}, ${country}`);
           const res = await fetch(
@@ -207,44 +213,39 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               <label className="text-sm font-semibold text-primary flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-accent" /> Adresse
               </label>
-              <input
+              <AddressAutocomplete
                 value={addrLine}
-                onChange={e => setAddrLine(e.target.value)}
-                className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
-                placeholder="30 Rue Henri Barbusse"
+                onChange={setAddrLine}
+                onSelect={r => {
+                  setAddrLine(r.line);
+                  setPostalCode(r.postalCode);
+                  setCity(r.city);
+                  setShopLat(r.lat);
+                  setShopLng(r.lng);
+                }}
+                inputClassName="w-full pl-10 pr-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-primary">Code postal</label>
-                <input
-                  value={postalCode}
-                  onChange={e => setPostalCode(e.target.value)}
+                <input value={postalCode} onChange={e => setPostalCode(e.target.value)}
                   className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
-                  placeholder="75001"
-                />
+                  placeholder="75001" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-primary">Ville</label>
-                <input
-                  value={city}
-                  onChange={e => setCity(e.target.value)}
+                <input value={city} onChange={e => setCity(e.target.value)}
                   className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
-                  placeholder="Paris"
-                />
+                  placeholder="Paris" />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-primary">Pays</label>
-              <input
-                value={country}
-                onChange={e => setCountry(e.target.value)}
-                className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
-                placeholder="France"
-              />
-            </div>
+            {/* Carte mini */}
+            {shopLat !== 0 && (
+              <ShopMap lat={shopLat} lng={shopLng} label={`${addrLine}, ${city}`} height={180} />
+            )}
           </section>
 
           <div className="border-t border-border" />

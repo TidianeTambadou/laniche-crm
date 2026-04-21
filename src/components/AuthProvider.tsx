@@ -4,12 +4,14 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { Mail, Lock, User, ArrowRight, Loader2, MapPin, Globe, AtSign } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, Globe, AtSign } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import dynamic from "next/dynamic";
 import BottomNav from "./BottomNav";
+import AddressAutocomplete from "./AddressAutocomplete";
+import ShopMap from "./ShopMap";
 
 const LoginAnimation = dynamic(() => import("./LoginAnimation"), { ssr: false });
 
@@ -35,6 +37,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [country, setCountry]       = useState("France");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [addrLat, setAddrLat] = useState(0);
+  const [addrLng, setAddrLng] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -84,16 +88,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       const uid = session.user.id;
       const name = session.user.user_metadata?.name || "Nouvelle Boutique";
 
-      let lat = 0, lng = 0;
-      try {
-        const q = encodeURIComponent(`${addrLine}, ${postalCode} ${city}, ${country}`);
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
-          { headers: { "Accept-Language": "fr" } }
-        );
-        const geo = await res.json();
-        if (geo[0]) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
-      } catch {}
+      // Coordonnées issues de l'autocomplete (api-adresse.data.gouv.fr) ou fallback Nominatim
+      let lat = addrLat, lng = addrLng;
+      if (!lat || !lng) {
+        try {
+          const q = encodeURIComponent(`${addrLine}, ${postalCode} ${city}, ${country}`);
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
+            { headers: { "Accept-Language": "fr" } }
+          );
+          const geo = await res.json();
+          if (geo[0]) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+        } catch {}
+      }
 
       const { error } = await supabase.from("shops").upsert({
         id: uid,
@@ -269,37 +276,41 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           </p>
 
           <form onSubmit={handleCompleteOnboarding} className="space-y-3">
-            {/* Address */}
+            {/* Address autocomplete */}
             <div>
               <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Adresse</label>
-              <div className="relative">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input required value={addrLine} onChange={e => setAddrLine(e.target.value)} type="text"
-                  placeholder="30 Rue Henri Barbusse"
-                  className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
-              </div>
+              <AddressAutocomplete
+                value={addrLine}
+                onChange={setAddrLine}
+                onSelect={r => {
+                  setAddrLine(r.line);
+                  setPostalCode(r.postalCode);
+                  setCity(r.city);
+                  setAddrLat(r.lat);
+                  setAddrLng(r.lng);
+                }}
+                inputClassName="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all"
+              />
             </div>
 
-            {/* Postal + City */}
+            {/* Postal + City (auto-remplis, éditables) */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Code postal</label>
-                <input required value={postalCode} onChange={e => setPostalCode(e.target.value)} type="text" placeholder="75001"
+                <input value={postalCode} onChange={e => setPostalCode(e.target.value)} type="text" placeholder="75001"
                   className="w-full px-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Ville</label>
-                <input required value={city} onChange={e => setCity(e.target.value)} type="text" placeholder="Paris"
+                <input value={city} onChange={e => setCity(e.target.value)} type="text" placeholder="Paris"
                   className="w-full px-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
               </div>
             </div>
 
-            {/* Country */}
-            <div>
-              <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Pays</label>
-              <input value={country} onChange={e => setCountry(e.target.value)} type="text" placeholder="France"
-                className="w-full px-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
-            </div>
+            {/* Mini carte preview */}
+            {addrLat !== 0 && (
+              <ShopMap lat={addrLat} lng={addrLng} label={addrLine} height={160} className="mt-1" />
+            )}
 
             {/* Website */}
             <div>
