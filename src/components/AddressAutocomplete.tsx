@@ -35,7 +35,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect, placeho
   }, []);
 
   const fetch_ = (q: string) => {
-    clearTimeout(debounce.current);
+    if (debounce.current) clearTimeout(debounce.current);
     if (q.length < 3) { setSuggestions([]); setOpen(false); return; }
     debounce.current = setTimeout(async () => {
       setLoading(true);
