@@ -22,10 +22,21 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-body antialiased; }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    /* Safe area pour les encoches iPhone */
+    padding-top: env(safe-area-inset-top);
+    /* Touch : désactive le zoom double-tap iOS */
+    touch-action: manipulation;
+  }
+  /* Masquer la scrollbar sur mobile */
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-muted rounded-full; }
+  /* Scrollbar invisible sur mobile */
+  @media (max-width: 1024px) {
+    ::-webkit-scrollbar { display: none; }
+  }
 }
 
 /* ── Motion utilities ── */

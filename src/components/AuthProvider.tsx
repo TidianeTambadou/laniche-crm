@@ -4,11 +4,12 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, MapPin, Globe, AtSign } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import dynamic from "next/dynamic";
+import BottomNav from "./BottomNav";
 
 const LoginAnimation = dynamic(() => import("./LoginAnimation"), { ssr: false });
 
@@ -24,11 +25,40 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [errorMsg, setErrorMsg] = useState("");
   const [busy, setBusy]         = useState(false);
 
+  // Onboarding states
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [onbBusy, setOnbBusy]       = useState(false);
+  const [onbError, setOnbError]     = useState("");
+  const [addrLine, setAddrLine]     = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity]             = useState("");
+  const [country, setCountry]       = useState("France");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setLoading(false); });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) { setNeedsOnboarding(false); return; }
+    checkOnboarding(session.user.id);
+  }, [session]);
+
+  const checkOnboarding = async (uid: string) => {
+    const { data: shop } = await supabase
+      .from("shops")
+      .select("id, latitude, address_line")
+      .eq("id", uid)
+      .maybeSingle();
+    const incomplete = !shop || !shop.address_line || shop.address_line === "" || shop.latitude === 0;
+    setNeedsOnboarding(incomplete);
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +77,46 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     } finally { setBusy(false); }
   };
 
+  const handleCompleteOnboarding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOnbBusy(true); setOnbError("");
+    try {
+      const uid = session.user.id;
+      const name = session.user.user_metadata?.name || "Nouvelle Boutique";
+
+      let lat = 0, lng = 0;
+      try {
+        const q = encodeURIComponent(`${addrLine}, ${postalCode} ${city}, ${country}`);
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
+          { headers: { "Accept-Language": "fr" } }
+        );
+        const geo = await res.json();
+        if (geo[0]) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+      } catch {}
+
+      const { error } = await supabase.from("shops").upsert({
+        id: uid,
+        name,
+        address_line: addrLine,
+        postal_code: postalCode,
+        city,
+        country,
+        latitude: lat,
+        longitude: lng,
+        website_url: websiteUrl || null,
+        instagram_url: instagramUrl || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+
+      if (error) throw error;
+      setNeedsOnboarding(false);
+    } catch (err: any) {
+      setOnbError(err.message || "Erreur lors de la sauvegarde");
+    } finally { setOnbBusy(false); }
+  };
+
+  /* ── Loading ── */
   if (loading) {
     return (
       <div className="w-full min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -60,6 +130,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     );
   }
 
+  /* ── Not authenticated ── */
   if (!session) {
     return (
       <div className="w-full min-h-screen flex bg-[#0a0a0a]">
@@ -67,10 +138,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         {/* Left */}
         <div className="hidden lg:flex w-[54%] flex-col justify-between relative overflow-hidden p-12">
           <div className="absolute inset-0 opacity-20"><LoginAnimation /></div>
-          {/* Grid overlay */}
           <div className="absolute inset-0 opacity-[0.04]"
             style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.8) 1px,transparent 1px)", backgroundSize: "44px 44px" }} />
-          {/* Scan line */}
           <motion.div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none"
             initial={{ top: "0%" }} animate={{ top: "100%" }}
             transition={{ duration: 5, ease: "linear", repeat: Infinity, repeatDelay: 2 }} />
@@ -94,7 +163,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             </p>
           </motion.div>
 
-          {/* Ticker */}
           <div className="relative z-10 overflow-hidden">
             <div className="flex gap-8 animate-marquee whitespace-nowrap">
               {[...TICKER, ...TICKER].map((t, i) => (
@@ -176,12 +244,115 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     );
   }
 
+  /* ── Onboarding — complete shop profile ── */
+  if (needsOnboarding) {
+    return (
+      <div className="w-full min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
+          className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl"
+        >
+          <div className="flex items-center gap-3 mb-7">
+            <div className="w-9 h-9 rounded-xl overflow-hidden">
+              <Image src="/logo.jpg" alt="La Niche" width={36} height={36} className="w-full h-full object-cover" />
+            </div>
+            <span className="font-black text-foreground text-lg">La Niche</span>
+          </div>
+
+          <h2 className="text-2xl font-black text-foreground tracking-tight mb-1">
+            Localisez votre boutique
+          </h2>
+          <p className="text-muted-foreground text-sm mb-6">
+            Ces informations permettent aux clients de vous trouver sur l&apos;application mobile.
+          </p>
+
+          <form onSubmit={handleCompleteOnboarding} className="space-y-3">
+            {/* Address */}
+            <div>
+              <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Adresse</label>
+              <div className="relative">
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input required value={addrLine} onChange={e => setAddrLine(e.target.value)} type="text"
+                  placeholder="30 Rue Henri Barbusse"
+                  className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
+              </div>
+            </div>
+
+            {/* Postal + City */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Code postal</label>
+                <input required value={postalCode} onChange={e => setPostalCode(e.target.value)} type="text" placeholder="75001"
+                  className="w-full px-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Ville</label>
+                <input required value={city} onChange={e => setCity(e.target.value)} type="text" placeholder="Paris"
+                  className="w-full px-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
+              </div>
+            </div>
+
+            {/* Country */}
+            <div>
+              <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">Pays</label>
+              <input value={country} onChange={e => setCountry(e.target.value)} type="text" placeholder="France"
+                className="w-full px-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
+            </div>
+
+            {/* Website */}
+            <div>
+              <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">
+                Site web <span className="text-muted-foreground/40 normal-case font-normal">(optionnel)</span>
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} type="url" placeholder="https://..."
+                  className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
+              </div>
+            </div>
+
+            {/* Instagram */}
+            <div>
+              <label className="block text-[11px] font-bold text-foreground/50 uppercase tracking-wider mb-1.5">
+                Instagram <span className="text-muted-foreground/40 normal-case font-normal">(optionnel)</span>
+              </label>
+              <div className="relative">
+                <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input value={instagramUrl} onChange={e => setInstagramUrl(e.target.value)} type="url"
+                  placeholder="https://instagram.com/maboutique"
+                  className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
+              </div>
+            </div>
+
+            {onbError && (
+              <div className="p-3 rounded-xl bg-rose-50 text-rose-500 text-sm font-medium border border-rose-100">{onbError}</div>
+            )}
+
+            <button disabled={onbBusy} type="submit"
+              className="w-full mt-2 bg-foreground text-background font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-sm hover:opacity-90 transition-opacity disabled:opacity-60 shadow-lg shadow-black/10">
+              {onbBusy
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Géolocalisation en cours…</>
+                : <>Enregistrer ma boutique <ArrowRight className="w-4 h-4" /></>
+              }
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
+  /* ── Authenticated app shell ── */
   return (
     <SidebarProvider>
       <ProfileProvider>
-        <div className="flex h-screen overflow-hidden bg-background w-full">
+        <div className="flex h-[100dvh] overflow-hidden bg-background w-full">
           <Sidebar />
-          <main className="flex-1 flex flex-col h-screen overflow-y-auto w-full">{children}</main>
+          <main className="flex-1 flex flex-col h-[100dvh] overflow-y-auto w-full pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+            {children}
+          </main>
+          <BottomNav />
         </div>
       </ProfileProvider>
     </SidebarProvider>

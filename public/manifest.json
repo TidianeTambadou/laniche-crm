@@ -1,0 +1,20 @@
+{
+  "name": "La Niche CRM",
+  "short_name": "La Niche",
+  "description": "CRM pour les boutiques partenaires La Niche — inventaire, ventes privées, analytics.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

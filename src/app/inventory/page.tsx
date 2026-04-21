@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Plus, Pencil, Trash2, Tag, Search, Package } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2, Tag, Search, Package, ClipboardList, X, Check } from "lucide-react";
 import Papa from "papaparse";
 import { supabase } from "@/lib/supabase";
 import PageHeader from "@/components/PageHeader";
@@ -25,6 +25,10 @@ export default function InventoryPage() {
   const [shopId, setShopId]         = useState("");
   const [modalOpen, setModalOpen]   = useState(false);
   const [editTarget, setEditTarget] = useState<Item | null>(null);
+  const [pasteOpen, setPasteOpen]   = useState(false);
+  const [pasteText, setPasteText]   = useState("");
+  const [pastePreview, setPastePreview] = useState<{ name: string; brand: string; price: number; quantity: number }[]>([]);
+  const [pasteLoading, setPasteLoading] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -108,6 +112,46 @@ export default function InventoryPage() {
     fetchItems(shopId);
   };
 
+  /* ── Paste/text import ── */
+  const parsePasteLine = (line: string) => {
+    // Formats acceptés (séparateurs : - | , tab) :
+    // "Chance Eau Tendre - Chanel - 120 - 3"
+    // "Sauvage Dior 89.99 5"
+    // "La Vie Est Belle" (marque et prix optionnels)
+    const sep = /[\-\|,\t]+/;
+    const parts = line.split(sep).map(p => p.trim()).filter(Boolean);
+    const name  = parts[0] ?? "Inconnu";
+    const brand = parts[1] ?? "";
+    const price = parseFloat(parts.find(p => /^\d+(\.\d+)?$/.test(p.replace("€","").replace(",","."))) ?? "0") || 0;
+    const qty   = parseInt(parts[parts.length - 1]) || 1;
+    return { name, brand, price, quantity: qty };
+  };
+
+  const handlePasteChange = (text: string) => {
+    setPasteText(text);
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    setPastePreview(lines.map(parsePasteLine));
+  };
+
+  const confirmPasteImport = async () => {
+    if (!shopId || !pastePreview.length) return;
+    setPasteLoading(true);
+    const rows = pastePreview.map(p => ({
+      shop_id:      shopId,
+      perfume_name: p.name,
+      brand:        p.brand,
+      price:        p.price,
+      quantity:     p.quantity,
+    }));
+    const { error } = await supabase.from("shop_stock").insert(rows);
+    if (error) console.error("[paste import]", error);
+    await fetchItems(shopId);
+    setPasteOpen(false);
+    setPasteText("");
+    setPastePreview([]);
+    setPasteLoading(false);
+  };
+
   const openAdd    = () => { setEditTarget(null); setModalOpen(true); };
   const openEdit   = (item: Item) => { setEditTarget(item); setModalOpen(true); };
   const closeModal = () => { setModalOpen(false); setEditTarget(null); };
@@ -124,9 +168,14 @@ export default function InventoryPage() {
         title="Inventaire & Stock"
         right={
           <>
+            <button onClick={() => setPasteOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-secondary text-foreground text-xs font-semibold hover:bg-muted transition-colors">
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Coller une liste</span>
+            </button>
             <label className="cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-secondary text-foreground text-xs font-semibold hover:bg-muted transition-colors">
               <Upload className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isUploading ? "Lecture…" : "Importer CSV"}</span>
+              <span className="hidden sm:inline">{isUploading ? "Lecture…" : "CSV"}</span>
               <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
             </label>
             <button onClick={openAdd}
@@ -267,6 +316,63 @@ export default function InventoryPage() {
           </motion.button>
         </div>
       </div>
+
+      {/* ── Paste import modal ── */}
+      <AnimatePresence>
+        {pasteOpen && (
+          <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={e => { if (e.target === e.currentTarget) { setPasteOpen(false); setPasteText(""); setPastePreview([]); }}}>
+            <motion.div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-5 space-y-4"
+              initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-black text-base">Coller une liste</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Une ligne = un parfum. Format libre :<br/>
+                    <span className="font-mono">Nom - Marque - Prix - Quantité</span> (marque/prix optionnels)</p>
+                </div>
+                <button onClick={() => { setPasteOpen(false); setPasteText(""); setPastePreview([]); }}
+                  className="p-2 rounded-xl hover:bg-secondary transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <textarea
+                autoFocus
+                value={pasteText}
+                onChange={e => handlePasteChange(e.target.value)}
+                placeholder={"Chance Eau Tendre - Chanel - 120 - 3\nSauvage - Dior - 89.99\nLa Vie Est Belle"}
+                rows={6}
+                className="w-full rounded-xl border border-border bg-secondary/40 px-4 py-3 text-sm font-mono resize-none outline-none focus:ring-2 focus:ring-foreground/15"
+              />
+
+              {pastePreview.length > 0 && (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                    Aperçu — {pastePreview.length} article{pastePreview.length > 1 ? "s" : ""}
+                  </p>
+                  {pastePreview.map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2 text-sm">
+                      <span className="font-semibold flex-1 truncate">{p.name}</span>
+                      <span className="text-muted-foreground text-xs truncate">{p.brand || "—"}</span>
+                      <span className="font-mono text-xs shrink-0">{p.price ? `${p.price}€` : "—"}</span>
+                      <span className="text-xs font-bold shrink-0">×{p.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={confirmPasteImport}
+                disabled={!pastePreview.length || pasteLoading}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-foreground text-background text-sm font-bold disabled:opacity-40 hover:opacity-85 transition-opacity">
+                <Check className="w-4 h-4" />
+                {pasteLoading ? "Import…" : `Importer ${pastePreview.length || ""} article${pastePreview.length > 1 ? "s" : ""}`}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <PerfumeModal
         isOpen={modalOpen}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Save, LogOut, User, Mail, Lock, Store, Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Save, LogOut, Mail, Lock, Store, Calendar, CheckCircle2, AlertCircle, MapPin, Globe, AtSign } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface ProfilePanelProps {
@@ -12,14 +12,22 @@ interface ProfilePanelProps {
 type SaveStatus = "idle" | "saving" | "success" | "error";
 
 export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
-  const [shopName, setShopName] = useState("");
-  const [email, setEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [shopName, setShopName]         = useState("");
+  const [email, setEmail]               = useState("");
+  const [newPassword, setNewPassword]   = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [createdAt, setCreatedAt] = useState("");
-  const [initials, setInitials] = useState("??");
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [createdAt, setCreatedAt]       = useState("");
+  const [initials, setInitials]         = useState("??");
+  const [saveStatus, setSaveStatus]     = useState<SaveStatus>("idle");
+  const [errorMsg, setErrorMsg]         = useState("");
+
+  // Location fields
+  const [addrLine, setAddrLine]         = useState("");
+  const [postalCode, setPostalCode]     = useState("");
+  const [city, setCity]                 = useState("");
+  const [country, setCountry]           = useState("France");
+  const [websiteUrl, setWebsiteUrl]     = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -34,15 +42,20 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
 
     const { data: shop } = await supabase
       .from("shops")
-      .select("id, name, created_at")
+      .select("id, name, created_at, address_line, postal_code, city, country, website_url, instagram_url")
       .eq("id", session.user.id)
       .maybeSingle();
 
     if (shop) {
       setShopName(shop.name);
       setInitials(shop.name.substring(0, 2).toUpperCase());
-      const date = new Date(shop.created_at);
-      setCreatedAt(date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }));
+      setCreatedAt(new Date(shop.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }));
+      setAddrLine(shop.address_line ?? "");
+      setPostalCode(shop.postal_code ?? "");
+      setCity(shop.city ?? "");
+      setCountry(shop.country ?? "France");
+      setWebsiteUrl(shop.website_url ?? "");
+      setInstagramUrl(shop.instagram_url ?? "");
     }
   };
 
@@ -53,21 +66,49 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Non connecté");
+      const uid = session.user.id;
 
-      // Update shop name
+      // Geocode if address changed
+      let lat: number | undefined;
+      let lng: number | undefined;
+      if (addrLine && city) {
+        try {
+          const q = encodeURIComponent(`${addrLine}, ${postalCode} ${city}, ${country}`);
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
+            { headers: { "Accept-Language": "fr" } }
+          );
+          const geo = await res.json();
+          if (geo[0]) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+        } catch {}
+      }
+
+      const shopUpdate: Record<string, unknown> = {
+        name: shopName,
+        address_line: addrLine,
+        postal_code: postalCode,
+        city,
+        country,
+        website_url: websiteUrl || null,
+        instagram_url: instagramUrl || null,
+        updated_at: new Date().toISOString(),
+      };
+      if (lat !== undefined && lng !== undefined) {
+        shopUpdate.latitude = lat;
+        shopUpdate.longitude = lng;
+      }
+
       const { error: shopError } = await supabase
         .from("shops")
-        .update({ name: shopName })
-        .eq("id", session.user.id);
+        .update(shopUpdate)
+        .eq("id", uid);
       if (shopError) throw shopError;
 
-      // Update email if changed
       if (email !== session.user.email) {
         const { error: emailError } = await supabase.auth.updateUser({ email });
         if (emailError) throw emailError;
       }
 
-      // Update password if filled
       if (newPassword) {
         if (newPassword !== confirmPassword) throw new Error("Les mots de passe ne correspondent pas");
         if (newPassword.length < 6) throw new Error("Mot de passe trop court (6 caractères min.)");
@@ -93,7 +134,6 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
@@ -101,7 +141,6 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
         onClick={onClose}
       />
 
-      {/* Panel */}
       <div
         className={`fixed top-0 right-0 h-full w-full max-w-md z-50 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
@@ -109,7 +148,6 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       >
         {/* Header */}
         <div className="relative overflow-hidden bg-primary px-6 pt-8 pb-10">
-          {/* Decorative circles */}
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
           <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-full bg-accent/20" />
 
@@ -139,7 +177,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
         {/* Form */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
-          {/* Shop info */}
+          {/* Shop identity */}
           <section className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Informations boutique</h3>
 
@@ -149,7 +187,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               </label>
               <input
                 value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
+                onChange={e => setShopName(e.target.value)}
                 className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
                 placeholder="Ma Boutique"
               />
@@ -158,7 +196,93 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
 
           <div className="border-t border-border" />
 
-          {/* Account info */}
+          {/* Location */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Localisation</h3>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Visible sur la carte de l&apos;application mobile. Les coordonnées GPS sont calculées automatiquement.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-primary flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-accent" /> Adresse
+              </label>
+              <input
+                value={addrLine}
+                onChange={e => setAddrLine(e.target.value)}
+                className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
+                placeholder="30 Rue Henri Barbusse"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-primary">Code postal</label>
+                <input
+                  value={postalCode}
+                  onChange={e => setPostalCode(e.target.value)}
+                  className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
+                  placeholder="75001"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-primary">Ville</label>
+                <input
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                  className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
+                  placeholder="Paris"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-primary">Pays</label>
+              <input
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+                className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
+                placeholder="France"
+              />
+            </div>
+          </section>
+
+          <div className="border-t border-border" />
+
+          {/* Web presence */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Présence en ligne</h3>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-primary flex items-center gap-2">
+                <Globe className="w-4 h-4 text-accent" /> Site web
+              </label>
+              <input
+                value={websiteUrl}
+                onChange={e => setWebsiteUrl(e.target.value)}
+                type="url"
+                className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-primary flex items-center gap-2">
+                <AtSign className="w-4 h-4 text-accent" /> Instagram
+              </label>
+              <input
+                value={instagramUrl}
+                onChange={e => setInstagramUrl(e.target.value)}
+                type="url"
+                className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
+                placeholder="https://instagram.com/maboutique"
+              />
+            </div>
+          </section>
+
+          <div className="border-t border-border" />
+
+          {/* Account */}
           <section className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Compte</h3>
 
@@ -169,7 +293,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
                 placeholder="email@boutique.com"
               />
@@ -182,7 +306,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               <input
                 type="password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={e => setNewPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-secondary/40 border border-border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all"
                 placeholder="Laisser vide pour ne pas changer"
               />
@@ -196,7 +320,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                 <input
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={e => setConfirmPassword(e.target.value)}
                   className={`w-full px-4 py-3 bg-secondary/40 border rounded-xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium transition-all ${
                     confirmPassword && confirmPassword !== newPassword ? "border-rose-400" : "border-border"
                   }`}
@@ -210,7 +334,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           {saveStatus === "success" && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-              Profil mis à jour avec succès !
+              Profil mis à jour — boutique visible sur le mobile !
             </div>
           )}
           {saveStatus === "error" && errorMsg && (
@@ -221,19 +345,17 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           )}
         </div>
 
-        {/* Footer actions */}
+        {/* Footer */}
         <div className="px-6 py-5 border-t border-border space-y-3 bg-white">
           <button
             onClick={handleSave}
             disabled={saveStatus === "saving"}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20 disabled:opacity-60"
           >
-            {saveStatus === "saving" ? (
-              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            {saveStatus === "saving" ? "Sauvegarde..." : "Sauvegarder les modifications"}
+            {saveStatus === "saving"
+              ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Géolocalisation + sauvegarde…</>
+              : <><Save className="w-4 h-4" />Sauvegarder les modifications</>
+            }
           </button>
 
           <button

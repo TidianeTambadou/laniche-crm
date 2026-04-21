@@ -3,20 +3,18 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, PackageSearch, Tag, Settings, Sparkles, Moon, Sun, UserCircle, X } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Tag, Settings, Sparkles, Moon, Sun, UserCircle } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useProfile }  from "@/contexts/ProfileContext";
-import { useSidebar }  from "@/contexts/SidebarContext";
+import { useProfile } from "@/contexts/ProfileContext";
 
 const NAV = [
-  { href: "/",            label: "Tableau de Bord", Icon: LayoutDashboard },
-  { href: "/inventory",  label: "Inventaire",        Icon: PackageSearch   },
-  { href: "/sales",      label: "Ventes Privées",    Icon: Tag             },
-  { href: "/ai-insights",label: "Intelligence IA",   Icon: Sparkles, badge: "Soon" },
+  { href: "/",             label: "Tableau de Bord", Icon: LayoutDashboard },
+  { href: "/inventory",   label: "Inventaire",        Icon: PackageSearch   },
+  { href: "/sales",       label: "Ventes Privées",    Icon: Tag             },
+  { href: "/ai-insights", label: "Intelligence IA",   Icon: Sparkles, badge: "Soon" },
 ];
 
-function SidebarContent({ onClose }: { onClose?: () => void }) {
+function SidebarContent() {
   const pathname            = usePathname();
   const { theme, setTheme } = useTheme();
   const { openProfile }     = useProfile();
@@ -25,7 +23,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     <div className="flex flex-col h-full bg-[#0a0a0a]">
       {/* Logo */}
       <div className="px-4 py-4 flex items-center gap-3 border-b border-white/6">
-        <Link href="/" onClick={onClose} className="flex items-center gap-3 flex-1 min-w-0">
+        <Link href="/" className="flex items-center gap-3 flex-1 min-w-0">
           <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 ring-1 ring-white/10">
             <Image src="/logo.jpg" alt="La Niche" width={36} height={36} className="w-full h-full object-cover" />
           </div>
@@ -34,11 +32,6 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
             <span className="text-[10px] text-white/30 font-medium">CRM</span>
           </div>
         </Link>
-        {onClose && (
-          <button onClick={onClose} className="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors lg:hidden">
-            <X className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
       {/* Nav */}
@@ -47,7 +40,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         {NAV.map(({ href, label, Icon, badge }) => {
           const active = pathname === href;
           return (
-            <Link key={href} href={href} onClick={onClose}
+            <Link key={href} href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
                 active ? "bg-white text-black" : "text-white/40 hover:text-white/80 hover:bg-white/5"
               }`}>
@@ -65,8 +58,8 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       {/* Bottom */}
       <div className="px-2.5 pb-4 space-y-0.5 border-t border-white/5 pt-3">
         {[
-          { label: "Mon Profil",  Icon: UserCircle, action: () => { openProfile(); onClose?.(); } },
-          { label: "Paramètres", Icon: Settings,   action: () => { openProfile(); onClose?.(); } },
+          { label: "Mon Profil",  Icon: UserCircle, action: openProfile },
+          { label: "Paramètres", Icon: Settings,   action: openProfile },
         ].map(({ label, Icon, action }) => (
           <button key={label} onClick={action}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/80 hover:bg-white/5 transition-all">
@@ -87,41 +80,9 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 }
 
 export default function Sidebar() {
-  const { open, close } = useSidebar();
-
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-60 flex-col h-full shrink-0 border-r border-white/5">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile overlay */}
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-              onClick={close}
-            />
-            <motion.aside
-              key="drawer"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed top-0 left-0 h-full w-64 z-50 border-r border-white/5 lg:hidden"
-            >
-              <SidebarContent onClose={close} />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-    </>
+    <aside className="hidden lg:flex w-60 flex-col h-full shrink-0 border-r border-white/5">
+      <SidebarContent />
+    </aside>
   );
 }

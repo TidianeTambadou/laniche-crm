@@ -10,7 +10,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Tag, Share2, CheckCheck, GripVertical, X, Loader2,
-  Pencil, Sparkles, Package, Copy,
+  Pencil, Sparkles, Package, Copy, Send, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import PageHeader from "@/components/PageHeader";
@@ -23,6 +23,7 @@ interface StockItem {
   quantity: number;
   is_private_sale: boolean;
   private_sale_price: number | null;
+  sale_quantity: number | null;
 }
 
 /* ─────────────────────────────────────────────
@@ -127,9 +128,14 @@ function VitrineCard({
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-white/8 flex items-center gap-1 text-white/25">
-        <Tag className="w-3 h-3" />
-        <span className="text-[10px]">Vitrine VIP active</span>
+      <div className="mt-3 pt-3 border-t border-white/8 flex items-center justify-between text-white/25">
+        <div className="flex items-center gap-1">
+          <Tag className="w-3 h-3" />
+          <span className="text-[10px]">Vitrine VIP active</span>
+        </div>
+        <span className="text-[10px] font-bold">
+          {item.sale_quantity ?? item.quantity} unité{(item.sale_quantity ?? item.quantity) > 1 ? "s" : ""}
+        </span>
       </div>
     </motion.div>
   );
@@ -142,12 +148,15 @@ function PriceModal({
   item, onConfirm, onClose, mode,
 }: {
   item: StockItem | null;
-  onConfirm: (price: number) => Promise<void>;
+  onConfirm: (price: number, qty: number) => Promise<void>;
   onClose: () => void;
   mode: "add" | "edit";
 }) {
   const [price,   setPrice]   = useState("");
+  const [qty,     setQty]     = useState(1);
   const [loading, setLoading] = useState(false);
+
+  const maxQty = item?.quantity ?? 1;
 
   useEffect(() => {
     if (item) {
@@ -156,6 +165,7 @@ function PriceModal({
           ? String(item.private_sale_price ?? item.price ?? "")
           : ((item.price ?? 0) * 0.8).toFixed(2)
       );
+      setQty(mode === "edit" ? (item.sale_quantity ?? item.quantity) : item.quantity);
     }
   }, [item, mode]);
 
@@ -167,7 +177,7 @@ function PriceModal({
     const p = parseFloat(price);
     if (isNaN(p) || p <= 0) return;
     setLoading(true);
-    await onConfirm(p);
+    await onConfirm(p, qty);
     setLoading(false);
   };
 
@@ -237,13 +247,34 @@ function PriceModal({
                   )}
                 </AnimatePresence>
 
-                <div className="flex gap-2 mb-5">
+                <div className="flex gap-2 mb-4">
                   {[10, 20, 30].map(d => (
                     <button key={d} onClick={() => setPrice(((item.price ?? 0) * (1 - d / 100)).toFixed(2))}
                       className="flex-1 py-1.5 rounded-lg bg-white/6 text-white/40 text-[11px] font-bold hover:bg-white/12 hover:text-white/70 transition-colors border border-white/6">
                       −{d}%
                     </button>
                   ))}
+                </div>
+
+                {/* Quantity selector */}
+                <div className="mb-5">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">
+                    Unités à brader
+                    <span className="ml-2 text-white/20 normal-case tracking-normal font-medium">sur {maxQty} en stock</span>
+                  </label>
+                  <div className="flex items-center gap-3 bg-white/8 rounded-xl px-4 py-2 ring-1 ring-white/12">
+                    <button
+                      onClick={() => setQty(q => Math.max(1, q - 1))}
+                      className="w-7 h-7 rounded-lg bg-white/10 text-white font-black text-lg flex items-center justify-center hover:bg-white/20 transition-colors disabled:opacity-30"
+                      disabled={qty <= 1}
+                    >−</button>
+                    <span className="flex-1 text-center text-white font-black text-xl">{qty}</span>
+                    <button
+                      onClick={() => setQty(q => Math.min(maxQty, q + 1))}
+                      className="w-7 h-7 rounded-lg bg-white/10 text-white font-black text-lg flex items-center justify-center hover:bg-white/20 transition-colors disabled:opacity-30"
+                      disabled={qty >= maxQty}
+                    >+</button>
+                  </div>
                 </div>
 
                 <motion.button onClick={handleConfirm}
@@ -259,6 +290,165 @@ function PriceModal({
                     }
                   </span>
                 </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   NOTIFY SHOPIFY MODAL
+───────────────────────────────────────────── */
+function getNextMonths(n = 6): string[] {
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + i);
+    const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  });
+}
+
+function NotifyModal({
+  open, items, shopName, onClose,
+}: {
+  open: boolean;
+  items: StockItem[];
+  shopName: string;
+  onClose: () => void;
+}) {
+  const months = getNextMonths();
+  const [month,   setMonth]   = useState(months[0]);
+  const [loading, setLoading] = useState(false);
+  const [done,    setDone]    = useState(false);
+  const [err,     setErr]     = useState("");
+
+  useEffect(() => { if (open) { setDone(false); setErr(""); setMonth(months[0]); } }, [open]);
+
+  const send = async () => {
+    setLoading(true); setErr("");
+    try {
+      const res = await fetch("/api/notify-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopName, month, items }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Erreur");
+      setDone(true);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+          <motion.div key="modal"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: "spring", stiffness: 340, damping: 28 }}
+            className="fixed inset-x-4 bottom-4 sm:inset-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md z-50"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="bg-[#0a0a0a] px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Shopify</p>
+                  <h2 className="text-base font-black text-white">Notifier la braderie</h2>
+                </div>
+                <button onClick={onClose} className="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {done ? (
+                  <div className="flex flex-col items-center gap-3 py-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-foreground flex items-center justify-center">
+                      <CheckCheck className="w-5 h-5 text-background" />
+                    </div>
+                    <div>
+                      <p className="font-black text-foreground">Email envoyé !</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        La liste est dans ta boîte mail.<br />
+                        Tu peux maintenant mettre à jour Shopify.
+                      </p>
+                    </div>
+                    <button onClick={onClose} className="mt-2 px-5 py-2.5 rounded-xl bg-foreground text-background text-sm font-bold">
+                      Fermer
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Month picker */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                        Mois de lancement
+                      </label>
+                      <div className="relative">
+                        <select value={month} onChange={e => setMonth(e.target.value)}
+                          className="w-full appearance-none bg-secondary/60 border border-border rounded-xl px-4 py-3 text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-foreground/20 cursor-pointer">
+                          {months.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Items preview */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                        {items.length} article{items.length > 1 ? "s" : ""} à notifier
+                      </label>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {items.map(i => {
+                          const original = i.price ?? 0;
+                          const vip = i.private_sale_price ?? original;
+                          const pct = original > 0 ? Math.round((1 - vip / original) * 100) : 0;
+                          return (
+                            <div key={i.id} className="flex items-center gap-3 bg-secondary/50 rounded-xl px-3 py-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-foreground flex items-center justify-center text-background font-black text-[10px] shrink-0">
+                                {i.perfume_name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-foreground truncate">{i.perfume_name}</p>
+                                <p className="text-[10px] text-muted-foreground">{i.brand}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs font-black font-mono text-foreground">{vip.toFixed(2)} €</p>
+                                {pct > 0 && <p className="text-[10px] text-muted-foreground">−{pct}%</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {err && (
+                      <div className="p-3 rounded-xl bg-rose-50 text-rose-500 text-sm border border-rose-100">{err}</div>
+                    )}
+
+                    <button onClick={send} disabled={loading}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-foreground text-background text-sm font-black disabled:opacity-50 hover:opacity-85 transition-opacity">
+                      {loading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" />Envoi…</>
+                        : <><Send className="w-4 h-4" />Envoyer à Shopify</>
+                      }
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
@@ -296,13 +486,15 @@ function VitrineDropZone({ children, isOver }: { children: React.ReactNode; isOv
    PAGE MAIN
 ───────────────────────────────────────────── */
 export default function SalesPage() {
-  const [stock,      setStock]      = useState<StockItem[]>([]);
-  const [vitrine,    setVitrine]    = useState<StockItem[]>([]);
-  const [shopId,     setShopId]     = useState("");
-  const [copied,     setCopied]     = useState(false);
-  const [isOver,     setIsOver]     = useState(false);
-  const [activeDrag, setActiveDrag] = useState<StockItem | null>(null);
-  const [priceModal, setPriceModal] = useState<{ item: StockItem; mode: "add" | "edit" } | null>(null);
+  const [stock,       setStock]      = useState<StockItem[]>([]);
+  const [vitrine,     setVitrine]    = useState<StockItem[]>([]);
+  const [shopId,      setShopId]     = useState("");
+  const [shopName,    setShopName]   = useState("Ma Boutique");
+  const [copied,      setCopied]     = useState(false);
+  const [isOver,      setIsOver]     = useState(false);
+  const [activeDrag,  setActiveDrag] = useState<StockItem | null>(null);
+  const [priceModal,  setPriceModal] = useState<{ item: StockItem; mode: "add" | "edit" } | null>(null);
+  const [notifyOpen,  setNotifyOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -315,6 +507,8 @@ export default function SalesPage() {
       const uid = session.user.id;
       setShopId(uid);
       fetchAll(uid);
+      const { data: shop } = await supabase.from("shops").select("name").eq("id", uid).maybeSingle();
+      if (shop?.name) setShopName(shop.name);
     });
   }, []);
 
@@ -343,11 +537,12 @@ export default function SalesPage() {
     }
   };
 
-  const handleAddToVitrine = useCallback(async (price: number) => {
+  const handleAddToVitrine = useCallback(async (price: number, qty: number) => {
     if (!priceModal) return;
     const { error } = await supabase.from("shop_stock").update({
       is_private_sale:         true,
       private_sale_price:      price,
+      sale_quantity:           qty,
       private_sale_enabled_at: new Date().toISOString(),
     }).eq("id", priceModal.item.id);
     if (error) console.error("[addToVitrine]", error);
@@ -355,10 +550,10 @@ export default function SalesPage() {
     setPriceModal(null);
   }, [priceModal, shopId]);
 
-  const handleEditPrice = useCallback(async (price: number) => {
+  const handleEditPrice = useCallback(async (price: number, qty: number) => {
     if (!priceModal) return;
     const { error } = await supabase.from("shop_stock")
-      .update({ private_sale_price: price })
+      .update({ private_sale_price: price, sale_quantity: qty })
       .eq("id", priceModal.item.id);
     if (error) console.error("[editPrice]", error);
     await fetchAll(shopId);
@@ -430,14 +625,21 @@ export default function SalesPage() {
 
             <div className="relative z-10 px-5 py-4 border-b border-white/8">
               <p className="text-[10px] font-bold uppercase tracking-widest text-white/25 mb-0.5">Vitrine VIP</p>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-lg font-black text-white">{vitrine.length} article{vitrine.length !== 1 ? "s" : ""}</p>
                 {vitrine.length > 0 && (
-                  <button onClick={copyLink}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/8 text-white/50 text-[10px] font-bold hover:bg-white/14 transition-colors">
-                    {copied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    {copied ? "Copié" : "Lien"}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={copyLink}
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/8 text-white/50 text-[10px] font-bold hover:bg-white/14 transition-colors">
+                      {copied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span className="hidden sm:inline">{copied ? "Copié" : "Lien"}</span>
+                    </button>
+                    <button onClick={() => setNotifyOpen(true)}
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white text-black text-[10px] font-bold hover:opacity-85 transition-opacity">
+                      <Send className="w-3 h-3" />
+                      <span className="hidden sm:inline">Shopify</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -485,6 +687,13 @@ export default function SalesPage() {
         mode={priceModal?.mode ?? "add"}
         onConfirm={priceModal?.mode === "edit" ? handleEditPrice : handleAddToVitrine}
         onClose={() => setPriceModal(null)}
+      />
+
+      <NotifyModal
+        open={notifyOpen}
+        items={vitrine}
+        shopName={shopName}
+        onClose={() => setNotifyOpen(false)}
       />
     </div>
   );
