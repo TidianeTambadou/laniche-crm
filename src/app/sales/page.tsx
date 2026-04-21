@@ -46,7 +46,7 @@ function StockCard({
       {...(onBrader ? {} : listeners)}
       whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(0,0,0,0.10)" }}
       transition={{ type: "spring", stiffness: 400, damping: 28 }}
-      className={`bg-white rounded-2xl border border-border p-4 select-none group ${onBrader ? "cursor-default" : "cursor-grab active:cursor-grabbing touch-none"}`}
+      className={`bg-background rounded-2xl border border-border p-4 select-none group ${onBrader ? "cursor-default" : "cursor-grab active:cursor-grabbing touch-none"}`}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center font-black text-sm shrink-0 text-foreground">
@@ -84,7 +84,7 @@ function StockCard({
 ───────────────────────────────────────────── */
 function DragPreview({ item }: { item: StockItem }) {
   return (
-    <div className="bg-white rounded-2xl border-2 border-foreground/20 p-4 shadow-2xl shadow-black/25 rotate-2 scale-105 w-44">
+    <div className="bg-background rounded-2xl border-2 border-foreground/20 p-4 shadow-2xl shadow-black/25 rotate-2 scale-105 w-44">
       <div className="w-10 h-10 rounded-xl bg-foreground flex items-center justify-center font-black text-background text-sm mb-3">
         {item.perfume_name.charAt(0)}
       </div>
@@ -380,7 +380,7 @@ function NotifyModal({
             className="fixed inset-x-4 bottom-[calc(1rem+4rem+env(safe-area-inset-bottom))] sm:inset-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md z-50"
             onClick={e => e.stopPropagation()}
           >
-            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="bg-background rounded-2xl shadow-2xl overflow-hidden">
               {/* Header */}
               <div className="bg-[#0a0a0a] px-5 py-4 flex items-center justify-between">
                 <div>
@@ -609,7 +609,7 @@ export default function SalesPage() {
       />
 
       {/* ── MOBILE: onglets ── */}
-      <div className="lg:hidden flex border-b border-border bg-white">
+      <div className="lg:hidden flex border-b border-border bg-background">
         {(["stock", "vitrine"] as const).map(tab => (
           <button key={tab} onClick={() => setMobileTab(tab)}
             className={`flex-1 py-3 text-xs font-black tracking-wide transition-colors ${
@@ -686,7 +686,7 @@ export default function SalesPage() {
 
           {/* LEFT: STOCK */}
           <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border bg-white">
+            <div className="px-5 py-4 border-b border-border bg-background">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Stock disponible</p>
               <p className="text-lg font-black text-foreground">{stock.length} parfum{stock.length !== 1 ? "s" : ""}</p>
             </div>

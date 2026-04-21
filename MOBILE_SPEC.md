@@ -37,8 +37,22 @@ KEY  : NEXT_PUBLIC_SUPABASE_ANON_KEY   ← clé publique, safe côté client
 | `longitude` | `float8` | Coordonnée GPS |
 | `website_url` | `text\|null` | Site web |
 | `instagram_url` | `text\|null` | Instagram |
+| `opening_hours` | `jsonb\|null` | Horaires d'ouverture (voir structure ci-dessous) |
 | `created_at` | `timestamptz` | Date de création |
 | `updated_at` | `timestamptz` | Dernière mise à jour profil |
+
+**Structure `opening_hours` :**
+```json
+{
+  "lundi":    { "ouvert": true,  "debut": "09:00", "fin": "19:00" },
+  "mardi":    { "ouvert": true,  "debut": "09:00", "fin": "19:00" },
+  "mercredi": { "ouvert": true,  "debut": "09:00", "fin": "19:00" },
+  "jeudi":    { "ouvert": true,  "debut": "09:00", "fin": "19:00" },
+  "vendredi": { "ouvert": true,  "debut": "09:00", "fin": "19:00" },
+  "samedi":   { "ouvert": true,  "debut": "10:00", "fin": "18:00" },
+  "dimanche": { "ouvert": false, "debut": "10:00", "fin": "17:00" }
+}
+```
 
 **RLS** : lecture/écriture uniquement si `auth.uid() = id`.  
 **Trigger** : à chaque inscription, un shop est créé automatiquement avec le nom issu de `user_metadata.name`.
@@ -68,6 +82,7 @@ const { data: shop } = await supabase
 | `private_sale_price` | `numeric(10,2)\|null` | Prix bradé (rempli si `is_private_sale = true`) |
 | `sale_quantity` | `integer\|null` | Nb d'unités mise en braderie (`null` = toutes) |
 | `private_sale_enabled_at` | `timestamptz\|null` | Date de bascule en braderie |
+| `image_url` | `text\|null` | URL publique de la photo (Supabase Storage, bucket `perfume-images`) |
 | `created_at` | `timestamptz` | Date d'ajout |
 
 **RLS** : SELECT/INSERT/UPDATE/DELETE uniquement si `auth.uid() = shop_id`.
@@ -208,6 +223,10 @@ const onboardingDone = shop && shop.address_line && shop.latitude !== 0;
 ALTER TABLE public.shop_stock
   ADD COLUMN IF NOT EXISTS sale_quantity integer;
 
+-- Photo du parfum
+ALTER TABLE public.shop_stock
+  ADD COLUMN IF NOT EXISTS image_url text;
+
 -- Colonnes profil boutique (si manquantes)
 ALTER TABLE public.shops
   ADD COLUMN IF NOT EXISTS address_line    text,
@@ -218,7 +237,15 @@ ALTER TABLE public.shops
   ADD COLUMN IF NOT EXISTS longitude       float8 DEFAULT 0,
   ADD COLUMN IF NOT EXISTS website_url     text,
   ADD COLUMN IF NOT EXISTS instagram_url   text,
+  ADD COLUMN IF NOT EXISTS opening_hours   jsonb,
   ADD COLUMN IF NOT EXISTS updated_at      timestamptz;
+
+-- Bucket Supabase Storage pour les photos (exécuter dans le SQL Editor)
+INSERT INTO storage.buckets (id, name, public) VALUES ('perfume-images', 'perfume-images', true)
+  ON CONFLICT (id) DO NOTHING;
+CREATE POLICY IF NOT EXISTS "Lecture publique" ON storage.objects FOR SELECT USING (bucket_id = 'perfume-images');
+CREATE POLICY IF NOT EXISTS "Upload authentifié" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'perfume-images' AND auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "Suppression propriétaire" ON storage.objects FOR DELETE USING (bucket_id = 'perfume-images' AND auth.uid()::text = (storage.foldername(name))[1]);
 ```
 
 ---
@@ -246,6 +273,7 @@ Profil de la boutique. Une ligne par utilisateur auth.
 - name, address_line, postal_code, city, country
 - latitude, longitude (float8) — géocodé via api-adresse.data.gouv.fr
 - website_url, instagram_url (nullable)
+- opening_hours (jsonb, nullable) — { lundi: { ouvert, debut, fin }, … }
 - created_at, updated_at
 
 ### Table `shop_stock`
@@ -257,6 +285,7 @@ Inventaire des parfums. Scoped par shop_id.
 - private_sale_price (numeric) — prix bradé
 - sale_quantity (integer, nullable) — nb d'unités bradées (null = toutes)
 - private_sale_enabled_at (timestamptz)
+- image_url (text, nullable) — URL publique photo (Supabase Storage, bucket perfume-images)
 - created_at
 
 ## RLS (Row Level Security)

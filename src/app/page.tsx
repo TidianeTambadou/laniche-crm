@@ -23,7 +23,7 @@ interface KPIProps { label: string; value: string | number; Icon: React.ElementT
 function KPICard({ label, value, Icon }: KPIProps) {
   return (
     <motion.div variants={fade}
-      className="bg-white rounded-2xl border border-border p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+      className="bg-background rounded-2xl border border-border p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       <div className="flex items-start justify-between mb-5">
         <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center">
           <Icon className="w-4 h-4 text-foreground" />
@@ -133,7 +133,7 @@ export default function Dashboard() {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-border shadow-sm p-6">
+          <div className="lg:col-span-2 bg-background rounded-2xl border border-border shadow-sm p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold text-foreground">Stocks — 7 derniers jours</h3>
               <span className="text-[11px] text-muted-foreground bg-secondary px-2.5 py-1 rounded-full font-medium">Quantités ajoutées</span>
@@ -157,7 +157,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-6">
+          <div className="bg-background rounded-2xl border border-border shadow-sm p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold text-foreground">Top 5 Marques</h3>
               <span className="text-[11px] text-muted-foreground bg-secondary px-2.5 py-1 rounded-full font-medium">Qté</span>
@@ -179,7 +179,7 @@ export default function Dashboard() {
 
         {/* Localisation boutique */}
         {shopLat !== 0 && (
-          <motion.div variants={fade} className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+          <motion.div variants={fade} className="bg-background rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-bold text-foreground">Ma boutique</h3>
               <span className="text-[11px] text-muted-foreground bg-secondary px-2.5 py-1 rounded-full font-medium">Localisation</span>

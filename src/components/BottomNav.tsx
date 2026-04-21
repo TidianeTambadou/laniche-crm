@@ -16,7 +16,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-border flex items-stretch"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-background border-t border-border flex items-stretch"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {TABS.map(({ href, label, Icon }) => {

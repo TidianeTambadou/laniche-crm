@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Save, LogOut, Mail, Lock, Store, Calendar, CheckCircle2, AlertCircle, MapPin, Globe, AtSign } from "lucide-react";
+import { X, Save, LogOut, Mail, Lock, Store, Calendar, CheckCircle2, AlertCircle, MapPin, Globe, AtSign, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import AddressAutocomplete from "./AddressAutocomplete";
 import ShopMap from "./ShopMap";
@@ -12,6 +12,77 @@ interface ProfilePanelProps {
 }
 
 type SaveStatus = "idle" | "saving" | "success" | "error";
+
+type DayHours = { ouvert: boolean; debut: string; fin: string };
+type OpeningHours = Record<string, DayHours>;
+
+const DAYS: { key: string; label: string }[] = [
+  { key: "lundi",    label: "Lun" },
+  { key: "mardi",    label: "Mar" },
+  { key: "mercredi", label: "Mer" },
+  { key: "jeudi",    label: "Jeu" },
+  { key: "vendredi", label: "Ven" },
+  { key: "samedi",   label: "Sam" },
+  { key: "dimanche", label: "Dim" },
+];
+
+const DEFAULT_HOURS: OpeningHours = {
+  lundi:    { ouvert: true,  debut: "09:00", fin: "19:00" },
+  mardi:    { ouvert: true,  debut: "09:00", fin: "19:00" },
+  mercredi: { ouvert: true,  debut: "09:00", fin: "19:00" },
+  jeudi:    { ouvert: true,  debut: "09:00", fin: "19:00" },
+  vendredi: { ouvert: true,  debut: "09:00", fin: "19:00" },
+  samedi:   { ouvert: true,  debut: "10:00", fin: "18:00" },
+  dimanche: { ouvert: false, debut: "10:00", fin: "17:00" },
+};
+
+function OpeningHoursEditor({ value, onChange }: { value: OpeningHours; onChange: (v: OpeningHours) => void }) {
+  const toggle = (key: string) => onChange({ ...value, [key]: { ...value[key], ouvert: !value[key].ouvert } });
+  const setTime = (key: string, field: "debut" | "fin", t: string) =>
+    onChange({ ...value, [key]: { ...value[key], [field]: t } });
+
+  return (
+    <div className="space-y-2">
+      {DAYS.map(({ key, label }) => {
+        const day = value[key];
+        return (
+          <div key={key} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggle(key)}
+              className={`w-10 shrink-0 text-[11px] font-bold rounded-lg py-1 transition-colors ${
+                day.ouvert
+                  ? "bg-foreground text-background"
+                  : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              {label}
+            </button>
+            {day.ouvert ? (
+              <div className="flex items-center gap-1.5 flex-1">
+                <input
+                  type="time"
+                  value={day.debut}
+                  onChange={e => setTime(key, "debut", e.target.value)}
+                  className="flex-1 px-2 py-1.5 bg-secondary/40 border border-border rounded-lg text-xs outline-none focus:ring-2 focus:ring-accent transition-all"
+                />
+                <span className="text-muted-foreground text-xs shrink-0">→</span>
+                <input
+                  type="time"
+                  value={day.fin}
+                  onChange={e => setTime(key, "fin", e.target.value)}
+                  className="flex-1 px-2 py-1.5 bg-secondary/40 border border-border rounded-lg text-xs outline-none focus:ring-2 focus:ring-accent transition-all"
+                />
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground flex-1">Fermé</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const [shopName, setShopName]         = useState("");
@@ -32,6 +103,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const [instagramUrl, setInstagramUrl] = useState("");
   const [shopLat, setShopLat]           = useState(0);
   const [shopLng, setShopLng]           = useState(0);
+  const [openingHours, setOpeningHours] = useState<OpeningHours>(DEFAULT_HOURS);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,7 +118,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
 
     const { data: shop } = await supabase
       .from("shops")
-      .select("id, name, created_at, address_line, postal_code, city, country, website_url, instagram_url, latitude, longitude")
+      .select("id, name, created_at, address_line, postal_code, city, country, website_url, instagram_url, latitude, longitude, opening_hours")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -62,6 +134,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       setInstagramUrl(shop.instagram_url ?? "");
       setShopLat(shop.latitude ?? 0);
       setShopLng(shop.longitude ?? 0);
+      setOpeningHours((shop.opening_hours as OpeningHours) ?? DEFAULT_HOURS);
     }
   };
 
@@ -97,6 +170,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
         country,
         website_url: websiteUrl || null,
         instagram_url: instagramUrl || null,
+        opening_hours: openingHours,
         updated_at: new Date().toISOString(),
       };
       if (lat !== undefined && lng !== undefined) {
@@ -148,7 +222,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       />
 
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-md z-50 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+        className={`fixed top-0 right-0 h-full w-full max-w-md z-50 bg-background shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -250,6 +324,22 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
 
           <div className="border-t border-border" />
 
+          {/* Opening hours */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Horaires d&apos;ouverture</h3>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Affichés sur la fiche boutique dans l&apos;application mobile.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-primary flex items-center gap-2">
+                <Clock className="w-4 h-4 text-accent" /> Heures par jour
+              </label>
+              <OpeningHoursEditor value={openingHours} onChange={setOpeningHours} />
+            </div>
+          </section>
+
+          <div className="border-t border-border" />
+
           {/* Web presence */}
           <section className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Présence en ligne</h3>
@@ -347,7 +437,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-5 border-t border-border space-y-3 bg-white">
+        <div className="px-6 py-5 border-t border-border space-y-3 bg-background">
           <button
             onClick={handleSave}
             disabled={saveStatus === "saving"}

@@ -20,6 +20,22 @@
   --font-display: 'Outfit', sans-serif;
 }
 
+/* ── Dark mode overrides ── */
+.dark {
+  --color-background:           hsl(0, 0%, 9%);
+  --color-foreground:           hsl(0, 0%, 95%);
+  --color-primary:              hsl(0, 0%, 95%);
+  --color-primary-foreground:   hsl(0, 0%, 9%);
+  --color-secondary:            hsl(0, 0%, 15%);
+  --color-secondary-foreground: hsl(0, 0%, 95%);
+  --color-muted:                hsl(0, 0%, 18%);
+  --color-muted-foreground:     hsl(0, 0%, 60%);
+  --color-accent:               hsl(0, 0%, 95%);
+  --color-accent-foreground:    hsl(0, 0%, 9%);
+  --color-border:               hsl(0, 0%, 20%);
+  --color-ring:                 hsl(0, 0%, 95%);
+}
+
 @layer base {
   * { @apply border-border; }
   body {

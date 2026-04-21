@@ -20,8 +20,8 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Fonts
               "font-src 'self' https://fonts.gstatic.com",
-              // Images : données inline + OSM tiles
-              "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://staticmap.openstreetmap.de",
+              // Images : données inline + OSM tiles + Supabase Storage
+              "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://staticmap.openstreetmap.de https://*.supabase.co",
               // Iframes : OpenStreetMap embed
               "frame-src 'self' https://www.openstreetmap.org",
               // Fetch/XHR : Supabase, Resend (serveur), API adresse gouv, Nominatim, OSM

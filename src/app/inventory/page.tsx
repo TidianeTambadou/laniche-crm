@@ -16,6 +16,7 @@ interface Item {
   quantity: number;
   is_private_sale: boolean;
   private_sale_price: number | null;
+  image_url: string | null;
 }
 
 export default function InventoryPage() {
@@ -42,7 +43,7 @@ export default function InventoryPage() {
   const fetchItems = async (id: string) => {
     const { data, error } = await supabase
       .from("shop_stock")
-      .select("id, perfume_name, brand, price, quantity, is_private_sale, private_sale_price")
+      .select("id, perfume_name, brand, price, quantity, is_private_sale, private_sale_price, image_url")
       .eq("shop_id", id)
       .order("perfume_name");
     if (error) console.error("[fetchItems]", error);
@@ -82,6 +83,7 @@ export default function InventoryPage() {
       brand:        data.brand,
       price:        data.price,
       quantity:     data.quantity,
+      image_url:    data.imageUrl ?? null,
     }]);
     if (error) console.error("[handleAdd]", error);
     await fetchItems(shopId);
@@ -90,7 +92,7 @@ export default function InventoryPage() {
   const handleEdit = async (data: PerfumeFormData) => {
     if (!editTarget) return;
     const { error } = await supabase.from("shop_stock")
-      .update({ perfume_name: data.name, brand: data.brand, price: data.price, quantity: data.quantity })
+      .update({ perfume_name: data.name, brand: data.brand, price: data.price, quantity: data.quantity, image_url: data.imageUrl ?? null })
       .eq("id", editTarget.id);
     if (error) console.error("[handleEdit]", error);
     await fetchItems(shopId);
@@ -190,7 +192,7 @@ export default function InventoryPage() {
       <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
 
         {/* Search */}
-        <div className="flex items-center justify-between bg-white rounded-2xl border border-border px-4 py-3 gap-3">
+        <div className="flex items-center justify-between bg-background rounded-2xl border border-border px-4 py-3 gap-3">
           <div className="relative flex-1 max-w-xs">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher…"
@@ -200,7 +202,7 @@ export default function InventoryPage() {
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="hidden md:block bg-background rounded-2xl border border-border overflow-hidden">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -218,8 +220,12 @@ export default function InventoryPage() {
                     className="hover:bg-secondary/30 transition-colors group">
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-foreground/5 flex items-center justify-center font-black text-xs shrink-0">
-                          {item.perfume_name.charAt(0)}
+                        <div className="w-8 h-8 rounded-xl bg-foreground/5 flex items-center justify-center font-black text-xs shrink-0 overflow-hidden">
+                          {item.image_url
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            ? <img src={item.image_url} alt={item.perfume_name} className="w-full h-full object-cover" />
+                            : item.perfume_name.charAt(0)
+                          }
                         </div>
                         <span className="font-semibold text-sm text-foreground">{item.perfume_name}</span>
                       </div>
@@ -272,11 +278,15 @@ export default function InventoryPage() {
               <motion.div key={item.id}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
                 transition={{ delay: i * 0.04 }}
-                className="bg-white rounded-2xl border border-border p-4">
+                className="bg-background rounded-2xl border border-border p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center font-black text-sm shrink-0">
-                      {item.perfume_name.charAt(0)}
+                    <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center font-black text-sm shrink-0 overflow-hidden">
+                      {item.image_url
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        ? <img src={item.image_url} alt={item.perfume_name} className="w-full h-full object-cover" />
+                        : item.perfume_name.charAt(0)
+                      }
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold text-sm text-foreground truncate">{item.perfume_name}</p>
@@ -305,7 +315,7 @@ export default function InventoryPage() {
             ))}
           </AnimatePresence>
           {filtered.length === 0 && (
-            <div className="bg-white rounded-2xl border border-border py-16 text-center text-sm text-muted-foreground">
+            <div className="bg-background rounded-2xl border border-border py-16 text-center text-sm text-muted-foreground">
               <Package className="w-8 h-8 mx-auto mb-3 text-muted-foreground/40" />
               Aucun article. Importez un CSV ou ajoutez manuellement.
             </div>
@@ -323,7 +333,7 @@ export default function InventoryPage() {
           <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={e => { if (e.target === e.currentTarget) { setPasteOpen(false); setPasteText(""); setPastePreview([]); }}}>
-            <motion.div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-5 space-y-4"
+            <motion.div className="bg-background rounded-2xl w-full max-w-lg shadow-2xl p-5 space-y-4"
               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}>
               <div className="flex items-center justify-between">
                 <div>
@@ -378,9 +388,16 @@ export default function InventoryPage() {
         isOpen={modalOpen}
         onClose={closeModal}
         onSubmit={editTarget ? handleEdit : handleAdd}
-        initial={editTarget ? { name: editTarget.perfume_name, brand: editTarget.brand, price: editTarget.price ?? 0, quantity: editTarget.quantity } : undefined}
+        initial={editTarget ? {
+          name:     editTarget.perfume_name,
+          brand:    editTarget.brand,
+          price:    editTarget.price ?? 0,
+          quantity: editTarget.quantity,
+          imageUrl: editTarget.image_url,
+        } : undefined}
         mode={editTarget ? "edit" : "add"}
         existingPerfumes={items}
+        shopId={shopId}
       />
     </div>
   );

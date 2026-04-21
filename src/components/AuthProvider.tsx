@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { Mail, Lock, User, ArrowRight, Loader2, Globe, AtSign } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, Globe, AtSign, Clock, ChevronDown } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
@@ -16,6 +16,29 @@ import ShopMap from "./ShopMap";
 const LoginAnimation = dynamic(() => import("./LoginAnimation"), { ssr: false });
 
 const TICKER = ["INVENTAIRE", "VENTES PRIVÉES", "ANALYTICS", "RECOMMANDATIONS IA", "STOCK EN TEMPS RÉEL", "CRM BOUTIQUES"];
+
+type DayHours = { ouvert: boolean; debut: string; fin: string };
+type OpeningHours = Record<string, DayHours>;
+
+const DAYS_ONB: { key: string; label: string }[] = [
+  { key: "lundi",    label: "Lun" },
+  { key: "mardi",    label: "Mar" },
+  { key: "mercredi", label: "Mer" },
+  { key: "jeudi",    label: "Jeu" },
+  { key: "vendredi", label: "Ven" },
+  { key: "samedi",   label: "Sam" },
+  { key: "dimanche", label: "Dim" },
+];
+
+const DEFAULT_HOURS_ONB: OpeningHours = {
+  lundi:    { ouvert: true,  debut: "09:00", fin: "19:00" },
+  mardi:    { ouvert: true,  debut: "09:00", fin: "19:00" },
+  mercredi: { ouvert: true,  debut: "09:00", fin: "19:00" },
+  jeudi:    { ouvert: true,  debut: "09:00", fin: "19:00" },
+  vendredi: { ouvert: true,  debut: "09:00", fin: "19:00" },
+  samedi:   { ouvert: true,  debut: "10:00", fin: "18:00" },
+  dimanche: { ouvert: false, debut: "10:00", fin: "17:00" },
+};
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession]   = useState<any>(null);
@@ -39,6 +62,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [instagramUrl, setInstagramUrl] = useState("");
   const [addrLat, setAddrLat] = useState(0);
   const [addrLng, setAddrLng] = useState(0);
+  const [openingHours, setOpeningHours] = useState<OpeningHours>(DEFAULT_HOURS_ONB);
+  const [showHours, setShowHours]       = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -113,6 +138,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         longitude: lng,
         website_url: websiteUrl || null,
         instagram_url: instagramUrl || null,
+        opening_hours: openingHours,
         updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
 
@@ -182,7 +208,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         </div>
 
         {/* Right */}
-        <div className="flex-1 bg-white flex flex-col justify-center px-10 lg:px-16 rounded-l-3xl">
+        <div className="flex-1 bg-background flex flex-col justify-center px-10 lg:px-16 rounded-l-3xl">
           <div className="max-w-sm w-full mx-auto">
 
             <div className="lg:hidden flex items-center gap-3 mb-10">
@@ -259,7 +285,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
-          className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl"
+          className="max-w-md w-full bg-background rounded-3xl p-8 shadow-2xl"
         >
           <div className="flex items-center gap-3 mb-7">
             <div className="w-9 h-9 rounded-xl overflow-hidden">
@@ -335,6 +361,52 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                   placeholder="https://instagram.com/maboutique"
                   className="w-full pl-10 pr-4 py-3 bg-secondary/60 border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-foreground/20 transition-all" />
               </div>
+            </div>
+
+            {/* Opening hours — collapsible */}
+            <div className="border border-border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowHours(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-foreground/70 hover:bg-secondary/40 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Horaires d&apos;ouverture <span className="font-normal text-muted-foreground/60">(optionnel)</span>
+                </span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showHours ? "rotate-180" : ""}`} />
+              </button>
+              {showHours && (
+                <div className="px-4 pb-4 space-y-2 border-t border-border">
+                  {DAYS_ONB.map(({ key, label }) => {
+                    const day = openingHours[key];
+                    return (
+                      <div key={key} className="flex items-center gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => setOpeningHours(h => ({ ...h, [key]: { ...h[key], ouvert: !h[key].ouvert } }))}
+                          className={`w-10 shrink-0 text-[11px] font-bold rounded-lg py-1 transition-colors ${day.ouvert ? "bg-foreground text-background" : "bg-secondary text-muted-foreground"}`}
+                        >
+                          {label}
+                        </button>
+                        {day.ouvert ? (
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <input type="time" value={day.debut}
+                              onChange={e => setOpeningHours(h => ({ ...h, [key]: { ...h[key], debut: e.target.value } }))}
+                              className="flex-1 px-2 py-1.5 bg-secondary/60 border border-border rounded-lg text-xs outline-none focus:ring-2 focus:ring-foreground/20" />
+                            <span className="text-muted-foreground text-xs">→</span>
+                            <input type="time" value={day.fin}
+                              onChange={e => setOpeningHours(h => ({ ...h, [key]: { ...h[key], fin: e.target.value } }))}
+                              className="flex-1 px-2 py-1.5 bg-secondary/60 border border-border rounded-lg text-xs outline-none focus:ring-2 focus:ring-foreground/20" />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Fermé</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {onbError && (

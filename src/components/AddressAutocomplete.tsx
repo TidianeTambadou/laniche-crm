@@ -83,7 +83,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect, placeho
       </div>
 
       {open && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-[60] mt-1.5 bg-white border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 z-[60] mt-1.5 bg-background border border-border rounded-2xl shadow-2xl shadow-black/10 overflow-hidden">
           {suggestions.map((f, i) => (
             <button key={i} type="button" onMouseDown={e => { e.preventDefault(); pick(f); }}
               className="w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors flex items-start gap-3 border-b border-border/50 last:border-0">

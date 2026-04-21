@@ -48,7 +48,18 @@ CREATE POLICY "stock: update" ON public.shop_stock
 CREATE POLICY "stock: delete" ON public.shop_stock
     FOR DELETE USING (auth.uid() = shop_id);
 
--- 6. Trigger : crée automatiquement un shop à l'inscription
+-- 6. Migrations supplémentaires (appliquer si colonnes manquantes)
+-- ALTER TABLE public.shop_stock ADD COLUMN IF NOT EXISTS image_url text;
+-- ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS opening_hours jsonb;
+
+-- 6b. Bucket Supabase Storage pour les photos de parfums (exécuter dans le SQL Editor)
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('perfume-images', 'perfume-images', true)
+--   ON CONFLICT (id) DO NOTHING;
+-- CREATE POLICY "Lecture publique" ON storage.objects FOR SELECT USING (bucket_id = 'perfume-images');
+-- CREATE POLICY "Upload authentifié" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'perfume-images' AND auth.role() = 'authenticated');
+-- CREATE POLICY "Suppression propriétaire" ON storage.objects FOR DELETE USING (bucket_id = 'perfume-images' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- 7. Trigger : crée automatiquement un shop à l'inscription
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql

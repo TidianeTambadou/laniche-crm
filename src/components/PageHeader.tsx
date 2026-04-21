@@ -16,7 +16,7 @@ export default function PageHeader({ title, left, right }: PageHeaderProps) {
 
   return (
     <header
-      className="h-14 px-4 md:px-6 flex items-center justify-between border-b border-border bg-white sticky top-0 z-10 gap-3"
+      className="h-14 px-4 md:px-6 flex items-center justify-between border-b border-border bg-background sticky top-0 z-10 gap-3"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="flex items-center gap-3 min-w-0">
